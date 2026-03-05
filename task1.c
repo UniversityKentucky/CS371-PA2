@@ -34,6 +34,8 @@ Please specify the group members here
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #define MAX_EVENTS 64
 #define MESSAGE_SIZE 16
@@ -140,25 +142,32 @@ void *client_thread_func(void *arg) {
             if (events[i].data.fd == data->socket_fd && (events[i].events & EPOLLIN)) {
                 while (1) {
                     ssize_t n = recv(data->socket_fd, recv_buf, MESSAGE_SIZE, 0);
-                    if (n <= 0) {
-                        break;
-                    }
+                    if (n > 0) {
+                        struct timeval now;
+                        gettimeofday(&now, NULL);
 
-                    struct timeval now;
-                    gettimeofday(&now, NULL);
-
-                    if (outstanding > 0) {
-                        long long rtt =
-                            (now.tv_sec - send_times[head].tv_sec) * 1000000LL +
-                            (now.tv_usec - send_times[head].tv_usec);
-                        data->total_rtt += rtt;
-                        data->total_messages++;
-                        data->rx_cnt++;
-                        head = (head + 1) % PIPELINE_WINDOW;
-                        outstanding--;
+                        if (outstanding > 0) {
+                            long long rtt =
+                                (now.tv_sec - send_times[head].tv_sec) * 1000000LL +
+                                (now.tv_usec - send_times[head].tv_usec);
+                            data->total_rtt += rtt;
+                            data->total_messages++;
+                            data->rx_cnt++;
+                            head = (head + 1) % PIPELINE_WINDOW;
+                            outstanding--;
+                        } else {
+                            //unexpected extra packet
+                            data->rx_cnt++;
+                        }
                     } else {
-                        //unexpected extra packet
-                        data->rx_cnt++;
+                        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                            //no more data to read on this socket
+                            break;
+                        }
+                        if (n == 0) {
+                            //peer closed; stop reading
+                            break;
+                        }
                     }
                 }
             }
@@ -201,6 +210,13 @@ void run_client() {
         thread_data[i].socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
         if (thread_data[i].socket_fd == -1) {
             perror("socket");
+            exit(EXIT_FAILURE);
+        }
+
+        //make client socket non-blocking for epoll-based IO
+        int flags = fcntl(thread_data[i].socket_fd, F_GETFL, 0);
+        if (flags == -1 || fcntl(thread_data[i].socket_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+            perror("fcntl client socket O_NONBLOCK");
             exit(EXIT_FAILURE);
         }
 
@@ -259,6 +275,14 @@ void run_server() {
         exit(EXIT_FAILURE);
     }
 
+    //make server socket non-blocking for epoll based IO
+    int flags = fcntl(server_fd, F_GETFL, 0);
+    if (flags == -1 || fcntl(server_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        perror("fcntl server socket O_NONBLOCK");
+        close(server_fd);
+        exit(EXIT_FAILURE);
+    }
+
     int epoll_fd = epoll_create1(0);
     struct epoll_event event, events[MAX_EVENTS];
 
@@ -275,20 +299,28 @@ void run_server() {
         int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
         for (int i = 0; i < n_events; i++) {
             if (events[i].data.fd == server_fd && (events[i].events & EPOLLIN)) {
-                char buffer[MESSAGE_SIZE];
-                struct sockaddr_in client_addr;
-                socklen_t client_len = sizeof(client_addr);
-                ssize_t n = recvfrom(server_fd, buffer, MESSAGE_SIZE, 0,
-                                     (struct sockaddr *)&client_addr, &client_len);
-                if (n > 0) {
-                    //echo the datagram back to the sender
-                    ssize_t sent = sendto(server_fd, buffer, n, 0,
-                                          (struct sockaddr *)&client_addr, client_len);
-                    if (sent < 0) {
-                        perror("sendto");
+                while (1) {
+                    char buffer[MESSAGE_SIZE];
+                    struct sockaddr_in client_addr;
+                    socklen_t client_len = sizeof(client_addr);
+                    ssize_t n = recvfrom(server_fd, buffer, MESSAGE_SIZE, 0,
+                                         (struct sockaddr *)&client_addr, &client_len);
+                    if (n > 0) {
+                        //echo the datagram back to the sender
+                        ssize_t sent = sendto(server_fd, buffer, n, 0,
+                                              (struct sockaddr *)&client_addr, client_len);
+                        if (sent < 0) {
+                            perror("sendto");
+                        }
+                    } else {
+                        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                            //no more data to read on this socket
+                            break;
+                        }
+                        if (n == 0) {
+                            break;
+                        }
                     }
-                } else if (n < 0) {
-                    perror("recvfrom");
                 }
             }
         }
