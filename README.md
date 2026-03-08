@@ -13,16 +13,14 @@ You will extend your PA1 client–server code to:
 Project Structure
 -----------------
 
-- `pa2_task1.c` (expected): UDP client/server implementing:
+- `task1.c`: UDP client/server implementing:
   - UDP-based **pipelined protocol** (multiple in-flight packets).
   - Per-packet timers on the client.
   - Metrics collection: transmitted vs. received packets and inferred packet loss.
-- `pa2_task2.c` (expected): UDP client/server implementing:
+- `task2.c`: UDP client/server implementing:
   - **Sequence numbers (SN)** and ACKs.
   - **Go-Back-N–style retransmission** using timeouts.
   - Multiple in-flight packets with **no effective packet loss**.
-
-If your filenames differ, update this README accordingly.
 
 Build Instructions
 ------------------
@@ -34,13 +32,13 @@ Example build commands:
 - **Task 1**:
 
 ```bash
-gcc -o pa2_task1 pa2_task1.c -pthread
+gcc -o pa2_task1 task1.c -pthread
 ```
 
 - **Task 2**:
 
 ```bash
-gcc -o pa2_task2 pa2_task2.c -pthread
+gcc -o pa2_task2 task2.c -pthread
 ```
 
 If you have shared headers or source files, include them above as needed.
