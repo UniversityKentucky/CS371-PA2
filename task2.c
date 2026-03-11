@@ -317,17 +317,19 @@ static void handle_timeout_placeholder(client_thread_data_t *data) {
     data->last_timeout_start = data->base;
     data->last_timeout_end = data->next_seq;
 
-    if (data->timeout_cnt <= 3) {
-        fprintf(stderr,
-                "thread %d timeout waiting for ACK, retransmit window [%u, %u)\n",
-                data->thread_index, data->base, data->next_seq);
-    }
-
     for (seq_num = data->base; seq_num < data->next_seq; seq_num++) {
-        clear_window_slot(data, seq_num);
+        window_slot_t *slot = &data->window[seq_num % data->window_size];
+        
+        if (slot->in_use && slot->seq_num == seq_num) {
+            clock_gettime(CLOCK_MONOTONIC, &slot->sent_at);
+            
+            if (send_packet(data->socket_fd, &slot->packet) == -1) {
+                if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                    perror("retransmit failed");
+                }
+            }
+        }
     }
-
-    data->base = data->next_seq;
 }
 
 static void process_ack_packet(client_thread_data_t *data, const packet_frame_t *packet) {
