@@ -19,9 +19,9 @@
 /*
 Please specify the group members here
 
-# Student #1: Alice
-# Student #2: Bob
-# Student #3: Charlie
+# Student #1: Katie Bell 
+# Student #2: Ian Rowe 
+# Student #3: Kaleb Gordon
 
 */
 
