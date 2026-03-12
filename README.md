@@ -8,7 +8,6 @@ You will extend your PA1 client–server code to:
 - **Task 1**: Implement a **UDP-based pipelined protocol** and measure packet loss.
 - **Task 2**: Add **sequence numbers, ACKs, timeouts, and retransmission (Go-Back-N)** to eliminate packet loss.
 
-> Note: This README is written to match the official project description; adjust filenames or details if your implementation differs.
 
 Project Structure
 -----------------
@@ -41,8 +40,6 @@ gcc -o pa2_task1 task1.c -pthread
 gcc -o pa2_task2 task2.c -pthread
 ```
 
-If you have shared headers or source files, include them above as needed.
-
 Command-Line Arguments
 ----------------------
 
@@ -58,7 +55,6 @@ Both Task 1 and Task 2 programs are expected to use the same basic argument patt
 - `<num_client_threads>`: Number of concurrent client threads.
 - `<num_requests>`: Number of requests each client thread sends.
 
-You may add additional arguments (e.g., window size, timeout value); document any such changes here.
 
 Task 1: UDP-Based Pipelined Protocol
 ------------------------------------
@@ -153,18 +149,3 @@ Submission Notes
   - Run the server and client as documented above.
   - Check that sockets and epoll file descriptors are properly closed.
   - Check that error cases are handled gracefully (failed sockets, epoll failures, etc.).
-
-Style and Readability
----------------------
-
-To maximize the readability score:
-
-- Use consistent indentation (e.g., 4 spaces).
-- Use consistent spacing around operators and keywords.
-- Avoid overly long functions; break logic into helpers where reasonable.
-- Add comments only where they clarify non-obvious intent or protocol details (e.g., timer logic, window management).
-
-License / Academic Integrity
-----------------------------
-
-This project is for **CS 371** coursework. Follow your course’s academic integrity policy. Do not share your full solution publicly or copy others’ code.
